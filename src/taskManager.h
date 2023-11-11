@@ -45,8 +45,8 @@ struct controlleurThread_arg {
 // Semaphore pour synchroniser les taches de la partie continue
 extern sem_t simulator1_sync, simulator2_sync;
 
-// Semaphore pour synchroniser le Generateur aleatoire
-extern sem_t genAleatoire_sync, ctrlDest_sync;
+// Semaphore du controleur pour les tâches non-périodique
+extern sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
 
 // signal or connection
 // input et ouput variable pour passe le result de partie continue 
@@ -92,6 +92,8 @@ void* generateurAleatoireRoutine(void *args);
 void* ctrlDestinationRoutine(void *args);
 void* ctrlNavigationRoutine(void *args);
 void* ctrlCamaraRoutine(void *args);
+void* alarmBattery10(void *args);
+void* alarmBattery80(void *args);
 
 
 
