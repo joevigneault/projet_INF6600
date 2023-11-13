@@ -7,7 +7,6 @@ void sim(){
 /******************************************************************************
  * Initialisation des sémaphores
  *****************************************************************************/
-	//sem_t simulator_sync, simulator1_sync, simulator2_sync;
 	sem_t simulator_sync, ctrlNavigation_sync;
 
 
@@ -17,6 +16,8 @@ void sim(){
 	sem_init(&ctrlNavigation_sync, 0, 0);
 	sem_init(&genAleatoire_sync, 0, 1);
     sem_init(&ctrlDest_sync, 0, 0);
+    sem_init(&alarmeLow_sync, 0, 0);
+    sem_init(&alarmeHigh_sync, 0, 0);
 
     // Structure pour les priorités
     struct sched_param param;
@@ -43,6 +44,8 @@ void sim(){
     pthread_t genAleatoireTask;
     pthread_t ctrlDestinationTask;
     pthread_t ctrlNavigationTask;
+    pthread_t alarmBattery10Task;
+    pthread_t alarmBattery80Task;
 
 /******************************************************************************
  * Create timers arguments
@@ -117,22 +120,34 @@ void sim(){
 /**************************************************************************
  *   instantiation des taches ou thread  de la partie numerique du systeme
  **************************************************************************/
-    param.sched_priority = 5;
+    param.sched_priority = 4;
 	pthread_attr_setschedparam(&attr, &param);
 	if(0 != pthread_create(&genAleatoireTask, &attr, generateurAleatoireRoutine, &ctrl)) {
 		// Print error
 		printf("Could not create thread: %d\n", errno);
 	}
 
-	param.sched_priority = 4;
+	param.sched_priority = 3;
 	pthread_attr_setschedparam(&attr, &param);
 	if(0 != pthread_create(&ctrlDestinationTask, &attr, ctrlDestinationRoutine, &ctrl)) {
 		// Print error
 		printf("Could not create thread: %d\n", errno);
 	}
-	param.sched_priority = 3;
+	param.sched_priority = 2;
 	pthread_attr_setschedparam(&attr, &param);
 	if(0 != pthread_create(&ctrlNavigationTask, &attr, ctrlNavigationRoutine, &ctrlNavigation_args)) {
+		// Print error
+		printf("Could not create thread: %d\n", errno);
+	}
+	param.sched_priority = 5;
+	pthread_attr_setschedparam(&attr, &param);
+	if(0 != pthread_create(&alarmBattery10Task, &attr, alarmBattery10, &ctrl)) {
+		// Print error
+		printf("Could not create thread: %d\n", errno);
+	}
+    param.sched_priority = 5;
+	pthread_attr_setschedparam(&attr, &param);
+	if(0 != pthread_create(&alarmBattery80Task, &attr, alarmBattery80, &ctrl)) {
 		// Print error
 		printf("Could not create thread: %d\n", errno);
 	}
@@ -176,6 +191,7 @@ void sim(){
        //return EXIT_FAILURE;
     }
     
+
 /***********************************************************************
  *          joindre les thread de la partie numerique du system 
  **********************************************************************/
@@ -195,6 +211,16 @@ void sim(){
         printf("Could not wait for thread: %d\n", errno);
        //return EXIT_FAILURE;
     }
+   if(0 != pthread_join(alarmBattery10Task, NULL)) {
+       // Print error
+       printf("Could not wait for thread: %d\n", errno);
+      //return EXIT_FAILURE;
+   }
+   if(0 != pthread_join(alarmBattery80Task, NULL)) {
+       // Print error
+       printf("Could not wait for thread: %d\n", errno);
+      //return EXIT_FAILURE;
+   }
 
 
 

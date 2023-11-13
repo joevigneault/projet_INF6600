@@ -67,6 +67,7 @@ class Controleur{
         bool chargerBatterie;
         bool demarrerCycleAnalyse;
         systemEtat  syncCtrlTask;
+        bool rechargeTermineeSync;
         
         Controleur();
         ~Controleur();

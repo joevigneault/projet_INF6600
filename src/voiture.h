@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <cmath>
 
 
 #define dt  0.1
@@ -62,6 +63,7 @@ struct PositionXY_Var{
 struct Battery{
     double level;
     double consumption;
+    bool lowState;
 
 };
 
@@ -90,12 +92,10 @@ class Voiture{
         ~Voiture();
         
         void init();
-        void navigation(double desiredSpeed, double desiredOrientation, std::vector<std::ofstream>& fileStreams);
         void vitesse(double desiredSpeed);
         void positionOrientation(double realSpeed, double desiredOrientation);
         void batterie(double realSpeed);
         void camera(double posX, double posY);
-        void alimentation();
         void startAnalyse();
         
 };
