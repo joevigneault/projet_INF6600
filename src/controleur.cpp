@@ -10,6 +10,7 @@ void Controleur::init(){
     taskData.destination.type   = versDestination;
     syncCtrlTask                = nop;
     taskData.destination.rechargeBattery = false;
+    rechargeTermineeSync		= false;
 }
 
 void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, double realOrientation, double batterie) {
@@ -92,7 +93,7 @@ void Controleur::ctrlDestination(double posX, double posY){
         taskData.destination.rechargeBattery = 0;
         printf("Recharge terminée. Reprise du trajet.\n");
         taskData.destination.alarme = wayPointReach;
-        //ttCreateJob("Controle Destination");
+        rechargeTermineeSync = true;
         break;
     case wayPointReach:
         if (taskData.destination.type == versStation)

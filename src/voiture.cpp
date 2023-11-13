@@ -43,7 +43,7 @@ void Voiture::init(){
     position.deltaY = 0;
 
     //init battery
-    battery.level       = 11.0;
+    battery.level       = 75.0;
     battery.consumption = 0; 
     battery.lowState	= false;
 
@@ -121,19 +121,19 @@ void Voiture::positionOrientation(double realSpeed, double desiredOrientation){
     position.Y = position.Y + position.deltaY*dt;
     position.deltaX = (realSpeed*sin(orientationInRad))/(3.6);
     position.deltaY = (realSpeed*cos(orientationInRad))/(3.6);
+    //accélérer la simulation
+    position.deltaX = position.deltaX * 10;
+    position.deltaY = position.deltaY * 10;
 
     //result
     posX = position.X;
     posY = position.Y;
-
 }
 
 void Voiture::batterie(double realSpeed){
 
     battery.consumption = (realSpeed*100)/(3600*CONSUMPTION_KM);
     battery.level = battery.level - battery.consumption;
-    std::cout<<"Real speed = "<< realSpeed;
-    std::cout<<" Batterie Level = "<< batteryLevel << std::endl;
 
     //Vérification du niveau de la batterie et déclanchement de l'alarme pour une ittération seulement
 	if(battery.level <= 10 && !battery.lowState){

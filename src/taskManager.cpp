@@ -243,6 +243,10 @@ void* ctrlDestinationRoutine(void *args) {
 			//generation d'une nouvelle destination
 			sem_post(&genAleatoire_sync);
 		}
+		if(controleur->rechargeTermineeSync){
+			controleur->rechargeTermineeSync = false;
+			sem_post(&ctrlDest_sync); //reprise du fonctionnement normal
+		}
 
 		pthread_mutex_lock(&sync_connectionD2A);
 		D2A.chargerBatterie    = controleur->chargerBatterie;
