@@ -1,6 +1,0 @@
-12:05:00 **** Incremental Build of configuration x86_64-debug for project LAB3v4 ****
-make -j12 all 
-make: Nothing to be done for 'all'.
-
-12:05:01 Build Finished (took 154ms)
-
