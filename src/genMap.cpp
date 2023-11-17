@@ -389,7 +389,7 @@ void PathMap::genPx(int32_t coordX, int32_t coordY)
     setPx(coordX, coordY, this->textures[decideTexture(proba)]);
 }
 
-rgb_t PathMap::savePhoto(coord_t position)
+rgb_t PathMap::takePhoto(coord_t position)
 {
 	int32_t x = (int32_t) position.x / PX_TO_M;
 	int32_t y = (int32_t) position.y / PX_TO_M;

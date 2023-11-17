@@ -6,7 +6,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <cmath>
+#include "genMap.h"
+
 
 
 #define dt  0.1
@@ -63,7 +64,6 @@ struct PositionXY_Var{
 struct Battery{
     double level;
     double consumption;
-    bool lowState;
 
 };
 
@@ -82,6 +82,9 @@ class Voiture{
         bool alarmeBatterie80;
         bool alarmeBatterie10;
         bool ActiveRecharge;
+        bool analyseStart;
+        bool analyseDone;
+        PathMap* pathMap;
 
         SpeedVar speed;
         OrientationVar orientation;
@@ -92,10 +95,12 @@ class Voiture{
         ~Voiture();
         
         void init();
+        //void navigation(double desiredSpeed, double desiredOrientation, std::vector<std::ofstream>& fileStreams);
         void vitesse(double desiredSpeed);
         void positionOrientation(double realSpeed, double desiredOrientation);
         void batterie(double realSpeed);
-        void camera(double posX, double posY);
+        void camera(double posX, double posY, bool startAnalyse);
+        void alimentation();
         void startAnalyse();
         
 };

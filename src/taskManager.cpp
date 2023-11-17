@@ -1,8 +1,8 @@
 #include "taskManager.h"
 
 
-sem_t simulator1_sync, simulator2_sync;
-sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
+sem_t simulator1_sync, simulator2_sync, simulator3_sync;
+sem_t genAleatoire_sync, ctrlDest_sync;
 
 pthread_mutex_t sync_connectionA2D, sync_connectionD2A;
 analogToDigital A2D;
@@ -130,6 +130,7 @@ void* vitesseRoutine(void* args) {
 		smartCar->desiredSpeed       = D2A.consigneVitesse;
 		smartCar->desiredOrientation = D2A.consigneOrientation;
 		smartCar->ActiveRecharge     = D2A.chargerBatterie;
+		smartCar->analyseStart		 = D2A.demarrerCycleAnalyse;
     	pthread_mutex_unlock(&sync_connectionD2A);
 
 		smartCar->vitesse(smartCar->desiredSpeed);
@@ -173,25 +174,40 @@ void* batterieRoutine(void* args){
 	while(true) {
 		sem_wait(&simulator2_sync);
 		smartCar->batterie(smartCar->realSpeed);
+		smartCar->alimentation();
 		//std::cout<<"NIVEAU BATTERIE = "<< smartCar->batteryLevel<<std::endl;
+		sem_post(&simulator3_sync);
+		
+	}
+}
+/***************************************************************
+ *                   Routine Camera 
+ **************************************************************/
+void* cameraRoutine(void* args){
+
+	Voiture* 		smartCar;
+	// Get the arguments 
+	smartCar  = ((vitesseThread_arg*)args)->smartCar;
+	//smartCar  = ((Voiture*)args);
+	///* Routine loop 
+	while(true) {
+		sem_wait(&simulator3_sync);
+		smartCar->camera(smartCar->posX, smartCar->posY, smartCar->analyseStart);
+		//std::cout<<"CAMERA TEST SIM"<<std::endl;
+
 		pthread_mutex_lock(&sync_connectionA2D);
 		A2D.vitesseReel      = smartCar->realSpeed;
 		A2D.orientationReel  = smartCar->realOrientation;
 		A2D.posXReel         = smartCar->posX;
 		A2D.posYReel         = smartCar->posY;
 		A2D.niveauBatterie   = smartCar->batteryLevel;
+		A2D.analyseTerminee  = smartCar->analyseDone;
 		A2D.alarmeBatterie10 = smartCar->alarmeBatterie10;
 		A2D.alarmeBatterie80 = smartCar->alarmeBatterie80;
     	pthread_mutex_unlock(&sync_connectionA2D);
-    	if(smartCar->alarmeBatterie10){
-    		sem_post(&alarmeLow_sync);
-    	}
-    	if(smartCar->alarmeBatterie80){
-			sem_post(&alarmeHigh_sync);
-		}
+		
 	}
 }
-
 /**********************************************************************
  *               ROUTINE DU CONTROLLEUR (PARTIE NUMERIQUE)
  ***********************************************************************/
@@ -225,6 +241,7 @@ void* ctrlDestinationRoutine(void *args) {
 
 	Controleur*    controleur;
 	double posX, posY;
+	int i = 0;
 
 	/* Get the arguments */
 	controleur   = ((Controleur*)args);
@@ -238,19 +255,16 @@ void* ctrlDestinationRoutine(void *args) {
 		posY = A2D.posYReel;
     	pthread_mutex_unlock(&sync_connectionA2D);
 		controleur->ctrlDestination(posX, posY);
+		//post le semaphore du controleur de destination
+		//sem_post(&ctrlDestSync);
+		controleur->taskData.pathMap->dumpImage("./pic.bmp");
 
 		if(controleur->syncCtrlTask == getToDestination){
-			//generation d'une nouvelle destination
+			//post le semaphore du generateur de destination
+			//lorsqu'on arrive a destination afin de generer une 
+			//nouvelle destination
 			sem_post(&genAleatoire_sync);
 		}
-		if(controleur->rechargeTermineeSync){
-			controleur->rechargeTermineeSync = false;
-			sem_post(&ctrlDest_sync); //reprise du fonctionnement normal
-		}
-
-		pthread_mutex_lock(&sync_connectionD2A);
-		D2A.chargerBatterie    = controleur->chargerBatterie;
-		pthread_mutex_unlock(&sync_connectionD2A);
 	}
 }
 /***************************************************************
@@ -293,7 +307,8 @@ void* ctrlNavigationRoutine(void *args) {
 
 
 			if(controleur->syncCtrlTask == getTowayPoint){
-				//Arrivé au wayPoint
+				//post le semaphore du contoleur de destination
+				std::cout<<"semaphore du controle destination Sync"<<std::endl;
 				sem_post(&ctrlDest_sync);
 			}
 			pthread_mutex_lock(&sync_connectionD2A);
@@ -308,7 +323,7 @@ void* ctrlNavigationRoutine(void *args) {
  * 	      controleur de camera
  ***************************************************************/
 
- void* ctrlCamaraRoutine(void *args) {
+ void* ctrlCameraRoutine(void *args) {
 
 	struct timespec tp;
 	sem_t*          sync_sem;
@@ -332,66 +347,18 @@ void* ctrlNavigationRoutine(void *args) {
 	/* Routine loop */
 	while(true) {
 		//sem_wait(&ctrlNavSync);
+		sem_wait(sync_sem);
 		pthread_mutex_lock(&sync_connectionA2D);
 		posX 	  		= A2D.posXReel;
 		posY 	  		= A2D.posYReel;
 		analyseDone		= A2D.analyseTerminee;
     	pthread_mutex_unlock(&sync_connectionA2D);
-		
-		/* Wait for the pulse handler to release the semaphore */
-		if(0 == sem_wait(sync_sem)) {
-			/* Get the current time */
-			if(0 == clock_gettime(CLOCK_REALTIME, &tp)) {
-				elapsed_time = tp.tv_sec - starttime;
-				//printf("Hello from task %d at %d\n", task_id, elapsed_time);
-				controleur->ctrlCamera(posX, posY, analyseDone);
-			}
-			else {
-				/* Print error */
-				printf("Task %d could not get time: %d\n", task_id, errno);
-			}
-		}
-		else {
-			printf("Task %d could not wait semaphore: %d\n", task_id, errno);
-		}
+
+		controleur->ctrlCamera(posX, posY, analyseDone);
+		//std::cout<<"CAMERA TEST CTRL"<<std::endl;
 		pthread_mutex_lock(&sync_connectionD2A);
-		//D2A.demarrerCycleAnalyse  = ;
+		D2A.demarrerCycleAnalyse  = controleur->demarrerCycleAnalyse; 
     	pthread_mutex_unlock(&sync_connectionD2A);
 		
 	}
 }
-
- /***************************************************************
-  * 	      Gestionnaire de trigger relié à ALARM_LOW_BATTERY
-  ***************************************************************/
- void* alarmBattery10(void *args) {
-
-	 Controleur*    controleur;
-
-	 /* Get the arguments */
-	 controleur   = ((Controleur*)args);
-
-	 while(true){
-		 sem_wait(&alarmeLow_sync);
-		 controleur->alarmBattery10();
-		 sem_post(&ctrlDest_sync);
-	 }
- }
-
- /***************************************************************
-  * 	      Gestionnaire de trigger relié à ALARM_HIGH_BATTERY
-  ***************************************************************/
- void* alarmBattery80(void *args) {
-
-	 Controleur*    controleur;
-
-	 /* Get the arguments */
-	 controleur   = ((Controleur*)args);
-
-	 while(true){
-		 sem_wait(&alarmeHigh_sync);
-		 controleur->alarmBattery80();
-		 sem_post(&ctrlDest_sync);
-	 }
- }
-

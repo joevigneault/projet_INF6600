@@ -1,7 +1,7 @@
 #ifndef __GEN_MAP_H__
 #define __GEN_MAP_H__
 
-#define SIMU_ACCEL 10000
+#define SIMU_ACCEL 1
 
 #define IMG_W_PX 7000
 #define IMG_H_PX 7000
@@ -53,7 +53,7 @@ class PathMap {
         PathMap();
         ~PathMap();
 
-        rgb_t savePhoto(coord_t position);
+        rgb_t takePhoto(coord_t position);
         void genWp(coord_t actualPos, coord_t dest, coord_t &wp);
         void genDest(coord_t actualPos, coord_t &dest);
         void getClosestStation(coord_t actualPos, coord_t &stationPos);

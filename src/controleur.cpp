@@ -9,8 +9,18 @@ void Controleur::init(){
     taskData.etatVehicule       = arret;
     taskData.destination.type   = versDestination;
     syncCtrlTask                = nop;
-    taskData.destination.rechargeBattery = false;
-    rechargeTermineeSync		= false;
+    //taskData.destination.alarme = highBattery;
+    //init navigateur
+    taskData.navigation.realPosition    = {0, 0};
+    taskData.navigation.realOrientation = 0;
+    taskData.navigation.realSpeed       = 0;
+    taskData.navigation.batteryLevel    = 0;
+
+    //init controlleur de destination
+    taskData.destination.realPosition   = {0, 0};
+
+    taskData.camera.lastPicturePosition = {0, 0};
+
 }
 
 void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, double realOrientation, double batterie) {
@@ -65,6 +75,8 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
     }
 
     // Ajustement des sorties
+    //ttAnalogOut(DESIRED_ORIENTATION, d->navigation.desiredOrientation);
+    //ttAnalogOut(DESIRED_SPEED, d->navigation.desiredSpeed); 
     consigneVitesse     = taskData.navigation.desiredSpeed;  
     consigneOrientation = taskData.navigation.desiredOrientation;  
 }
@@ -93,7 +105,7 @@ void Controleur::ctrlDestination(double posX, double posY){
         taskData.destination.rechargeBattery = 0;
         printf("Recharge terminée. Reprise du trajet.\n");
         taskData.destination.alarme = wayPointReach;
-        rechargeTermineeSync = true;
+        //ttCreateJob("Controle Destination");
         break;
     case wayPointReach:
         if (taskData.destination.type == versStation)
@@ -126,15 +138,15 @@ void Controleur::ctrlDestination(double posX, double posY){
         }
         taskData.destination.alarme = closed;
         break;
-	case closed:
+        case closed:
         break;
     }
-    // Ajustement des sorties
-    chargerBatterie = taskData.destination.rechargeBattery;
+    //ttAnalogOut(CHARGE_BATTERY, d->destination.rechargeBattery);
+    //return FINISHED;
 }
 
 
-void Controleur::ctrlCamera(double posX,double posY,double analyseDone ) {
+void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
     
         // Lecture des entrées
     taskData.camera.realPosition = {posX, posY};
@@ -144,6 +156,7 @@ void Controleur::ctrlCamera(double posX,double posY,double analyseDone ) {
     taskData.camera.distance = sqrt(pow(taskData.camera.realPosition.x - taskData.camera.lastPicturePosition.x, 2)
         + pow(taskData.camera.realPosition.y - taskData.camera.lastPicturePosition.y, 2));
     taskData.camera.takePicture = 0;
+    //printf("camera distance : %f\n", taskData.camera.distance);
     switch (taskData.etatVehicule)
     {
     case marche:
@@ -171,24 +184,27 @@ void Controleur::ctrlCamera(double posX,double posY,double analyseDone ) {
             // Ajustement des sorties
     //ttAnalogOut(ANALYSE_PICTURE, d->camera.takePicture);
     //return FINISHED; 
+    demarrerCycleAnalyse = taskData.camera.takePicture;
 }
 
 // Définition du gestionnaire de Trigger relié au Trigger ALARM_LOW_BATTERY
 void Controleur::alarmBattery10() {
-    // Création d'une alarme et appel du controleur de destination
+        // Création d'une alarme et appel du controleur de destination
     taskData.destination.alarme = lowBattery;
+    //ttCreateJob("Controle Destination");
 }
 
 // Définition du gestionnaire de Trigger relié au Trigger ALARM_HIGH_BATTERY
 void Controleur::alarmBattery80() {
 
-    // Création d'une alarme et appel du controleur de destination
+        // Création d'une alarme et appel du controleur de destination
     taskData.destination.alarme = highBattery;
+        //ttCreateJob("Controle Destination");
 }
 
 void Controleur::generateurAleatoire(double posX, double posY) {
     
-    taskData.camera.realPosition = {posX, posY};
+    taskData.destination.realPosition = {posX, posY};
     // Génération aléatoire d'une destination à partir de la position actuelle
     taskData.pathMap->genDest(taskData.destination.realPosition, taskData.genDestination.newDest);
     

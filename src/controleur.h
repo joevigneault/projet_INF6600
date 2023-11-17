@@ -40,10 +40,10 @@ struct ctrlDestinationData {
 struct ctrlCameraData {
     coord_t realPosition;
     coord_t lastPicturePosition;
-    bool distance;
-    double takePicture;
-    double checkPicture;
-    double savePicture;
+    double distance;
+    bool takePicture;
+    bool checkPicture;
+    bool savePicture;
 };
 // Structure du générateur de destination aléatoire
 
@@ -67,7 +67,6 @@ class Controleur{
         bool chargerBatterie;
         bool demarrerCycleAnalyse;
         systemEtat  syncCtrlTask;
-        bool rechargeTermineeSync;
         
         Controleur();
         ~Controleur();
@@ -78,7 +77,7 @@ class Controleur{
                             double realOrientation, double batterie);
         
         void ctrlDestination(double posX, double poxY);
-        void ctrlCamera(double posX,double posY,double analyseDone );
+        void ctrlCamera(double posX,double posY,bool analyseDone );
         void alarmBattery10();
         void alarmBattery80();
         void generateurAleatoire(double posX, double posY);
