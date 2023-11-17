@@ -9,7 +9,9 @@ void Controleur::init(){
     taskData.etatVehicule       = arret;
     taskData.destination.type   = versDestination;
     syncCtrlTask                = nop;
-    //taskData.destination.alarme = highBattery;
+    taskData.destination.rechargeBattery = false;
+    rechargeTermineeSync		= false;
+
     //init navigateur
     taskData.navigation.realPosition    = {0, 0};
     taskData.navigation.realOrientation = 0;
@@ -59,7 +61,6 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
             taskData.destination.alarme = wayPointReach;
             syncCtrlTask = getTowayPoint;
             std::cout<<"Reach the way point"<<std::endl;
-            //ttCreateJob("Controle Destination");
         }
         // Calcul de l'orientation souhaitee
         taskData.navigation.desiredOrientation = (atan((droiteX) / (droiteY)) * 180.0) / M_PI;
@@ -75,8 +76,6 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
     }
 
     // Ajustement des sorties
-    //ttAnalogOut(DESIRED_ORIENTATION, d->navigation.desiredOrientation);
-    //ttAnalogOut(DESIRED_SPEED, d->navigation.desiredSpeed); 
     consigneVitesse     = taskData.navigation.desiredSpeed;  
     consigneOrientation = taskData.navigation.desiredOrientation;  
 }
@@ -105,7 +104,7 @@ void Controleur::ctrlDestination(double posX, double posY){
         taskData.destination.rechargeBattery = 0;
         printf("Recharge terminée. Reprise du trajet.\n");
         taskData.destination.alarme = wayPointReach;
-        //ttCreateJob("Controle Destination");
+        rechargeTermineeSync = true;
         break;
     case wayPointReach:
         if (taskData.destination.type == versStation)
@@ -127,7 +126,6 @@ void Controleur::ctrlDestination(double posX, double posY){
                 taskData.etatVehicule = arret;
                 printf("Destination Atteinte\n");
                 syncCtrlTask = getToDestination;
-                //ttCreateJob("Générateur aléatoire");
             }
             else {
                 taskData.pathMap->genWp(taskData.destination.realPosition, taskData.destination.desiredDestination, taskData.destination.wayPoint);
@@ -138,11 +136,11 @@ void Controleur::ctrlDestination(double posX, double posY){
         }
         taskData.destination.alarme = closed;
         break;
-        case closed:
+            case closed:
         break;
     }
-    //ttAnalogOut(CHARGE_BATTERY, d->destination.rechargeBattery);
-    //return FINISHED;
+    // Ajustement des sorties
+    chargerBatterie = taskData.destination.rechargeBattery;
 }
 
 
@@ -189,17 +187,15 @@ void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
 
 // Définition du gestionnaire de Trigger relié au Trigger ALARM_LOW_BATTERY
 void Controleur::alarmBattery10() {
-        // Création d'une alarme et appel du controleur de destination
+    // Création d'une alarme et appel du controleur de destination
     taskData.destination.alarme = lowBattery;
-    //ttCreateJob("Controle Destination");
 }
 
 // Définition du gestionnaire de Trigger relié au Trigger ALARM_HIGH_BATTERY
 void Controleur::alarmBattery80() {
 
-        // Création d'une alarme et appel du controleur de destination
+    // Création d'une alarme et appel du controleur de destination
     taskData.destination.alarme = highBattery;
-        //ttCreateJob("Controle Destination");
 }
 
 void Controleur::generateurAleatoire(double posX, double posY) {

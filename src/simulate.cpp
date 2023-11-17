@@ -7,7 +7,6 @@ void sim(){
 /******************************************************************************
  * Initialisation des sémaphores
  *****************************************************************************/
-	//sem_t simulator_sync, simulator1_sync, simulator2_sync;
 	sem_t simulator_sync, ctrlNavigation_sync, ctrlCamera_sync;
 
 
@@ -19,6 +18,8 @@ void sim(){
 	sem_init(&ctrlCamera_sync, 0, 0);
 	sem_init(&genAleatoire_sync, 0, 1);
     sem_init(&ctrlDest_sync, 0, 0);
+    sem_init(&alarmeLow_sync, 0, 0);
+    sem_init(&alarmeHigh_sync, 0, 0);
 
     // Structure pour les priorités
     struct sched_param param;
@@ -54,6 +55,8 @@ void sim(){
     pthread_t ctrlDestinationTask;
     pthread_t ctrlNavigationTask;
     pthread_t ctrlCameraTask;
+    pthread_t alarmBattery10Task;
+    pthread_t alarmBattery80Task;
 
 
 /******************************************************************************
@@ -62,7 +65,7 @@ void sim(){
     struct sigevent   realSpeedTask_event;
     struct itimerspec realSpeedTask_itime;
     timer_t           realSpeedtask_timer;
-    
+
     struct sigevent   ctrlNavigation_event;
     struct itimerspec ctrlNavigation_itime;
     timer_t           ctrlNavigation_timer;
@@ -91,7 +94,7 @@ void sim(){
 	}
 
 	Controleur ctrl;
-	
+
 	ctrl.taskData.pathMap = &pathMap;
 
     ctrlNavigation_args.control  = &ctrl;
@@ -110,9 +113,9 @@ void sim(){
     ctrlCamera_args.starttime = tp.tv_sec;
     ctrlCamera_args.chid      = ChannelCreate(0);
     if(-1 == ctrlCamera_args.chid) {
-            // Print error 
+            // Print error
             printf("Could not create channel: %d\n", errno);
-            
+
     }
 
     initSignal();
@@ -129,7 +132,7 @@ void sim(){
     }
     if(0 != pthread_create(&task_pulse_handler, NULL,
                         pulse_handler, &ctrlCamera_args)) {
-    // Print error 
+    // Print error
     printf("Could not create thread: %d\n", errno);
 
     }
@@ -150,9 +153,9 @@ void sim(){
         printf("Could not create thread: %d\n", errno);
     }
     if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &simulator_args)) {
-        // Print error 
+        // Print error
         printf("Could not create thread: %d\n", errno);
-       
+
     }
 
 /**************************************************************************
@@ -180,29 +183,41 @@ void sim(){
     param.sched_priority = 2;
     pthread_attr_setschedparam(&attr, &param);
     if(0 != pthread_create(&ctrlCameraTask, &attr, ctrlCameraRoutine, &ctrlCamera_args)) {
-        // Print error 
+        // Print error
         printf("Could not create thread: %d\n", errno);
-        
+
     }
+    param.sched_priority = 6;
+	pthread_attr_setschedparam(&attr, &param);
+	if(0 != pthread_create(&alarmBattery10Task, &attr, alarmBattery10, &ctrl)) {
+		// Print error
+		printf("Could not create thread: %d\n", errno);
+	}
+    param.sched_priority = 6;
+	pthread_attr_setschedparam(&attr, &param);
+	if(0 != pthread_create(&alarmBattery80Task, &attr, alarmBattery80, &ctrl)) {
+		// Print error
+		printf("Could not create thread: %d\n", errno);
+	}
 
 /******************************************************************************
  * Create the different timers
  *****************************************************************************/
     if(0 != init_timer(&realSpeedTask_event, &realSpeedTask_itime, &realSpeedtask_timer,
-                        simulator_args.chid, 70)) {
+                        simulator_args.chid, 50)) {
         // Print error 
         printf("Could not create timer: %d\n", errno);
     }
     if(0 != init_timer(&ctrlNavigation_event, &ctrlNavigation_itime, &ctrlNavigation_timer,
-						ctrlNavigation_args.chid, 70)) {
+						ctrlNavigation_args.chid, 100)) {
 		// Print error
 		printf("Could not create timer: %d\n", errno);
 	}
     if(0 != init_timer(&ctrlCamera_event, &ctrlCamera_itime, &ctrlCamera_timer,
                         ctrlCamera_args.chid, 50)) {
-        // Print error 
+        // Print error
         printf("Could not create timer: %d\n", errno);
-       
+
     }
 
 /***********************************************************************
@@ -230,7 +245,7 @@ void sim(){
        //return EXIT_FAILURE;
     }
     if(0 != pthread_join(cameraTask, NULL)) {
-        // Print error 
+        // Print error
         printf("Could not wait for thread: %d\n", errno);
        //return EXIT_FAILURE;
     }
@@ -256,9 +271,19 @@ void sim(){
     }
 
     if(0 != pthread_join(ctrlCameraTask, NULL)) {
-        // Print error 
+        // Print error
         printf("Could not wait for thread: %d\n", errno);
        //return EXIT_FAILURE;
     }
+    if(0 != pthread_join(alarmBattery10Task, NULL)) {
+       // Print error
+       printf("Could not wait for thread: %d\n", errno);
+      //return EXIT_FAILURE;
+   }
+   if(0 != pthread_join(alarmBattery80Task, NULL)) {
+       // Print error
+       printf("Could not wait for thread: %d\n", errno);
+      //return EXIT_FAILURE;
+   }
 
 }
