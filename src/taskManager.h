@@ -33,20 +33,11 @@ struct controlleurThread_arg {
 	int32_t  chid;      /* Task channel id */
 };
 
-/*struct orientationPositionThread_arg {
-	sem_t*   semaphore; 
-	Voiture*   smartCar;
-	uint32_t id;       
-	uint32_t starttime; 
-	int32_t  chid;      
-};*/
-
-
 // Semaphore pour synchroniser les taches de la partie continue
 extern sem_t simulator1_sync, simulator2_sync,simulator3_sync;
 
-// Semaphore pour synchroniser le Generateur aleatoire
-extern sem_t genAleatoire_sync, ctrlDest_sync;
+// Semaphore du controleur pour les tâches non-périodique
+extern sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
 
 // signal or connection
 // input et ouput variable pour passe le result de partie continue 
@@ -93,6 +84,8 @@ void* ctrlDestinationRoutine(void *args);
 void* ctrlNavigationRoutine(void *args);
 void* ctrlCameraRoutine(void *args);
 void* cameraRoutine(void* args);
+void* alarmBattery10(void *args);
+void* alarmBattery80(void *args);
 
 
 #endif

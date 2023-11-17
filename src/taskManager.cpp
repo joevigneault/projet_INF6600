@@ -2,7 +2,7 @@
 
 
 sem_t simulator1_sync, simulator2_sync, simulator3_sync;
-sem_t genAleatoire_sync, ctrlDest_sync;
+sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
 
 pthread_mutex_t sync_connectionA2D, sync_connectionD2A;
 analogToDigital A2D;
@@ -174,22 +174,27 @@ void* batterieRoutine(void* args){
 	while(true) {
 		sem_wait(&simulator2_sync);
 		smartCar->batterie(smartCar->realSpeed);
-		smartCar->alimentation();
 		//std::cout<<"NIVEAU BATTERIE = "<< smartCar->batteryLevel<<std::endl;
+		if(smartCar->alarmeBatterie10){
+    		sem_post(&alarmeLow_sync);
+    	}
+    	if(smartCar->alarmeBatterie80){
+			sem_post(&alarmeHigh_sync);
+		}
 		sem_post(&simulator3_sync);
-		
+
 	}
 }
 /***************************************************************
- *                   Routine Camera 
+ *                   Routine Camera
  **************************************************************/
 void* cameraRoutine(void* args){
 
 	Voiture* 		smartCar;
-	// Get the arguments 
+	// Get the arguments
 	smartCar  = ((vitesseThread_arg*)args)->smartCar;
 	//smartCar  = ((Voiture*)args);
-	///* Routine loop 
+	///* Routine loop
 	while(true) {
 		sem_wait(&simulator3_sync);
 		smartCar->camera(smartCar->posX, smartCar->posY, smartCar->analyseStart);
@@ -202,10 +207,8 @@ void* cameraRoutine(void* args){
 		A2D.posYReel         = smartCar->posY;
 		A2D.niveauBatterie   = smartCar->batteryLevel;
 		A2D.analyseTerminee  = smartCar->analyseDone;
-		A2D.alarmeBatterie10 = smartCar->alarmeBatterie10;
-		A2D.alarmeBatterie80 = smartCar->alarmeBatterie80;
     	pthread_mutex_unlock(&sync_connectionA2D);
-		
+
 	}
 }
 /**********************************************************************
@@ -230,6 +233,8 @@ void* generateurAleatoireRoutine(void *args) {
 		posY = A2D.posYReel;
     	pthread_mutex_unlock(&sync_connectionA2D);
     	controleur->generateurAleatoire(posX, posY);
+    	controleur->taskData.pathMap->dumpImage("./pic2.bmp");
+	    std::cout<<"picture taken"<<std::endl;
 		sem_post(&ctrlDest_sync);
 	}
 }
@@ -241,7 +246,6 @@ void* ctrlDestinationRoutine(void *args) {
 
 	Controleur*    controleur;
 	double posX, posY;
-	int i = 0;
 
 	/* Get the arguments */
 	controleur   = ((Controleur*)args);
@@ -255,16 +259,19 @@ void* ctrlDestinationRoutine(void *args) {
 		posY = A2D.posYReel;
     	pthread_mutex_unlock(&sync_connectionA2D);
 		controleur->ctrlDestination(posX, posY);
-		//post le semaphore du controleur de destination
-		//sem_post(&ctrlDestSync);
-		controleur->taskData.pathMap->dumpImage("./pic.bmp");
 
 		if(controleur->syncCtrlTask == getToDestination){
-			//post le semaphore du generateur de destination
-			//lorsqu'on arrive a destination afin de generer une 
-			//nouvelle destination
+			//generation d'une nouvelle destination
 			sem_post(&genAleatoire_sync);
 		}
+		if(controleur->rechargeTermineeSync){
+			controleur->rechargeTermineeSync = false;
+			sem_post(&ctrlDest_sync); //reprise du fonctionnement normal
+		}
+
+		pthread_mutex_lock(&sync_connectionD2A);
+		D2A.chargerBatterie    = controleur->chargerBatterie;
+		pthread_mutex_unlock(&sync_connectionD2A);
 	}
 }
 /***************************************************************
@@ -307,8 +314,7 @@ void* ctrlNavigationRoutine(void *args) {
 
 
 			if(controleur->syncCtrlTask == getTowayPoint){
-				//post le semaphore du contoleur de destination
-				std::cout<<"semaphore du controle destination Sync"<<std::endl;
+				//Arrivé au wayPoint
 				sem_post(&ctrlDest_sync);
 			}
 			pthread_mutex_lock(&sync_connectionD2A);
@@ -357,8 +363,42 @@ void* ctrlNavigationRoutine(void *args) {
 		controleur->ctrlCamera(posX, posY, analyseDone);
 		//std::cout<<"CAMERA TEST CTRL"<<std::endl;
 		pthread_mutex_lock(&sync_connectionD2A);
-		D2A.demarrerCycleAnalyse  = controleur->demarrerCycleAnalyse; 
+		D2A.demarrerCycleAnalyse  = controleur->demarrerCycleAnalyse;
     	pthread_mutex_unlock(&sync_connectionD2A);
 		
 	}
 }
+
+/***************************************************************
+  * 	      Gestionnaire de trigger relié à ALARM_LOW_BATTERY
+  ***************************************************************/
+ void* alarmBattery10(void *args) {
+
+	 Controleur*    controleur;
+
+	 /* Get the arguments */
+	 controleur   = ((Controleur*)args);
+
+	 while(true){
+		 sem_wait(&alarmeLow_sync);
+		 controleur->alarmBattery10();
+		 sem_post(&ctrlDest_sync);
+	 }
+ }
+
+ /***************************************************************
+  * 	      Gestionnaire de trigger relié à ALARM_HIGH_BATTERY
+  ***************************************************************/
+ void* alarmBattery80(void *args) {
+
+	 Controleur*    controleur;
+
+	 /* Get the arguments */
+	 controleur   = ((Controleur*)args);
+
+	 while(true){
+		 sem_wait(&alarmeHigh_sync);
+		 controleur->alarmBattery80();
+		 sem_post(&ctrlDest_sync);
+	 }
+ }
