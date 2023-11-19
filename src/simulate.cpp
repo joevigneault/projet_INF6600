@@ -7,7 +7,7 @@ void sim(){
 /******************************************************************************
  * Initialisation des sémaphores
  *****************************************************************************/
-	sem_t simulator_sync, ctrlNavigation_sync, ctrlCamera_sync;
+	sem_t simulator_sync, ctrlNavigation_sync, ctrlCamera_sync, cameraRout;
 
 
 	sem_init(&simulator_sync, 0, 0);
@@ -20,6 +20,8 @@ void sim(){
     sem_init(&ctrlDest_sync, 0, 0);
     sem_init(&alarmeLow_sync, 0, 0);
     sem_init(&alarmeHigh_sync, 0, 0);
+    sem_init(&cameraRout, 0, 0);
+
 
     // Structure pour les priorités
     struct sched_param param;
@@ -73,10 +75,15 @@ void sim(){
     struct sigevent   ctrlCamera_event;
     struct itimerspec ctrlCamera_itime;
     timer_t           ctrlCamera_timer;
+
+    struct sigevent   CameraRoutine_event;
+    struct itimerspec CameraRoutine_itime;
+    timer_t           CameraRoutine_timer;
 /******************************************************************************
  * Initialize the pulse thread tasks arguments
  *****************************************************************************/
 	vitesseThread_arg simulator_args;
+    vitesseThread_arg camera_args;
 	controlleurThread_arg ctrlNavigation_args;
     controlleurThread_arg ctrlCamera_args;
 
@@ -89,6 +96,17 @@ void sim(){
 	simulator_args.starttime = tp.tv_sec;
 	simulator_args.chid      = ChannelCreate(0);
 	if(-1 == simulator_args.chid) {
+			// Print error
+			printf("Could not create channel: %d\n", errno);
+	}
+
+    camera_args.smartCar  = &voiture;
+    camera_args.smartCar->pathMap = &pathMap;
+	camera_args.id        = 3;
+	camera_args.semaphore = &cameraRout;
+	camera_args.starttime = tp.tv_sec;
+	camera_args.chid      = ChannelCreate(0);
+	if(-1 == camera_args.chid) {
 			// Print error
 			printf("Could not create channel: %d\n", errno);
 	}
@@ -136,6 +154,12 @@ void sim(){
     printf("Could not create thread: %d\n", errno);
 
     }
+    if(0 != pthread_create(&task_pulse_handler, NULL,
+                        pulse_handler, &camera_args)) {
+    // Print error
+    printf("Could not create thread: %d\n", errno);
+
+    }
     
 /***************************************************************
  *   instantiation de taches ou thread  de la partie continue du systeme
@@ -152,10 +176,14 @@ void sim(){
         // Print error 
         printf("Could not create thread: %d\n", errno);
     }
-    if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &simulator_args)) {
+    /*if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &simulator_args)) {
         // Print error
         printf("Could not create thread: %d\n", errno);
 
+    }*/
+    if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &camera_args)) {
+        // Print error
+        printf("Could not create thread: %d\n", errno);
     }
 
 /**************************************************************************
@@ -204,7 +232,7 @@ void sim(){
  * Create the different timers
  *****************************************************************************/
     if(0 != init_timer(&realSpeedTask_event, &realSpeedTask_itime, &realSpeedtask_timer,
-                        simulator_args.chid, 50)) {
+                        simulator_args.chid, 100)) {
         // Print error 
         printf("Could not create timer: %d\n", errno);
     }
@@ -215,6 +243,12 @@ void sim(){
 	}
     if(0 != init_timer(&ctrlCamera_event, &ctrlCamera_itime, &ctrlCamera_timer,
                         ctrlCamera_args.chid, 50)) {
+        // Print error
+        printf("Could not create timer: %d\n", errno);
+
+    }
+    if(0 != init_timer(&CameraRoutine_event, &CameraRoutine_itime, &CameraRoutine_timer,
+                        camera_args.chid, 45)) {
         // Print error
         printf("Could not create timer: %d\n", errno);
 

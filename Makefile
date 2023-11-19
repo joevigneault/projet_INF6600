@@ -1,4 +1,4 @@
-ARTIFACT = projet_inf6600
+ARTIFACT = inf6600v2
 
 #Build architecture/variant string, possible values: x86, armv7le, etc...
 PLATFORM ?= x86_64

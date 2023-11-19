@@ -13,7 +13,10 @@
 #include <sys/netmgr.h>   /* ND_LOCAL_NODE */
 #include <time.h>         /* struct itimerspec struct timespec
                              timer_create tier_settime clock_gettime */
+#include <iostream>
+#include <fstream>
 #include "simulate.h"
+
 using namespace std;
 /* Pulse code definition */
 #define TASK_PULSE_CODE _PULSE_CODE_MINAVAIL
@@ -24,6 +27,6 @@ int main(){
 
 	sim();
 
-	cout << "fin du programme" << endl; // prints Hello World!!!
+	cout << "fin du programme" << endl; 
 	return 0;
 }

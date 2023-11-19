@@ -10,6 +10,7 @@
 #include <sys/netmgr.h>
 #include "voiture.h"
 #include "controleur.h"
+#include "dataRecord.h"
 
 #define TASK_PULSE_CODE _PULSE_CODE_MINAVAIL
 
@@ -86,6 +87,7 @@ void* ctrlCameraRoutine(void *args);
 void* cameraRoutine(void* args);
 void* alarmBattery10(void *args);
 void* alarmBattery80(void *args);
+
 
 
 #endif

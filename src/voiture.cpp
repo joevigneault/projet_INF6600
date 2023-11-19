@@ -89,13 +89,25 @@ void Voiture::vitesse(double desiredSpeed){
 		speed.yt       = speed.yt_1 + dt*speed.deltaYt_1;
 		speed.deltaYt  = speed.deltaYt_1 + dt*(speed.delta2Yt_1);
 		speed.delta2Yt = 4*speed.deltaUt + speed.ut - 6*speed.deltaYt - speed.yt;
-		speed.delta2Yt = speed.delta2Yt/2;
+		speed.delta2Yt = speed.delta2Yt/10;
     }
 
     speed.ut_1      = speed.ut;
     speed.yt_1      = speed.yt;
     speed.deltaYt_1 = speed.deltaYt;
     speed.delta2Yt_1= speed.delta2Yt;
+
+    /*speed.ut = desiredSpeed;
+    speed.deltaUt  = (speed.ut - speed.ut_1)/dt;
+    speed.yt       = speed.yt_1 + dt*speed.deltaYt_1;
+    speed.deltaYt  = speed.deltaYt_1 + dt*(speed.delta2Yt_1);
+    speed.delta2Yt = 4*speed.deltaUt + speed.ut - 6*speed.deltaYt - speed.yt;
+    speed.delta2Yt = speed.delta2Yt/10.0;
+
+    speed.ut_1      = speed.ut;
+    speed.yt_1      = speed.yt;
+    speed.deltaYt_1 = speed.deltaYt;
+    speed.delta2Yt_1= speed.delta2Yt;*/
 
     realSpeed = speed.yt;
 }

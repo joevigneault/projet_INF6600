@@ -42,6 +42,7 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
 
     //std::cout<<"postition reel de X :"<<posX<<std::endl;
     //std::cout<<"postition reel de Y :"<<posY<<std::endl;
+    //std::cout<<"Distance :"<<taskData.navigation.distance<<std::endl;
 
     switch (taskData.etatVehicule)
     {
@@ -159,14 +160,16 @@ void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
     {
     case marche:
         // Si la distance parcourue est entre 18 et 22 mètres, prendre photo et actualiser la position de la dernière photo
-        if ((taskData.camera.distance < 22.0) && (taskData.camera.distance > 18.0)) {
+        if ((taskData.camera.distance < 30.0) && (taskData.camera.distance > 18.0)) {
             taskData.camera.takePicture = 1;
             taskData.camera.savePicture = 0;
             taskData.camera.lastPicturePosition = taskData.camera.realPosition;
+            //printf("active photo \n");
         }
         // Si la distance entre deux photos dépasse 22m (gestion d'erreur), réinitialisation de la position de la dernière image prise
         else if (taskData.camera.distance > 22.0) {
             taskData.camera.lastPicturePosition = taskData.camera.realPosition;
+             //taskData.camera.takePicture = 1;
         }
         break;
     default:
