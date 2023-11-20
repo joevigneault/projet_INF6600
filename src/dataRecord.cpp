@@ -14,7 +14,7 @@ void Recorder::init(){
     recordCtrlData.open("./ctrlRecord.csv");
     recordCarData.open("./carSimulator.csv");
     recordCtrlData<<"dt"<<","<<"Vitesse"<<","<<"Orientation"<<","<<"batterie"<<endl;
-	recordCarData<<"dt"<<","<<"Vitesse"<<"Orientation"<<","<<"posX"<<","<<"PosY"<<","<<"batterie"<<endl;
+	recordCarData<<"dt"<<","<<"Vitesse"<<","<<"Orientation"<<","<<"posX"<<","<<"PosY"<<","<<"batterie"<<endl;
 }
 
 
