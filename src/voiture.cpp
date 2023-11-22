@@ -1,9 +1,9 @@
-
 #include "voiture.h"
 #include "math.h"
 #include <fstream>
 
 
+int i=0;
 Voiture::Voiture(){
     init();
 }
@@ -12,7 +12,6 @@ Voiture::~Voiture(){}
 
 void Voiture::init(){
     //initialize speed variable
-    std::cout<<"strat init"<<std::endl;
     speed.ut        = 0;
     speed.ut_1      = 0;
     speed.deltaUt   = 0;
@@ -67,8 +66,6 @@ void Voiture::init(){
 
     //init recharge
     ActiveRecharge = false;
-
-    std::cout<<"init done"<<std::endl;
 }
 
 void Voiture::vitesse(double desiredSpeed){
@@ -96,19 +93,6 @@ void Voiture::vitesse(double desiredSpeed){
     speed.yt_1      = speed.yt;
     speed.deltaYt_1 = speed.deltaYt;
     speed.delta2Yt_1= speed.delta2Yt;
-
-    /*speed.ut = desiredSpeed;
-    speed.deltaUt  = (speed.ut - speed.ut_1)/dt;
-    speed.yt       = speed.yt_1 + dt*speed.deltaYt_1;
-    speed.deltaYt  = speed.deltaYt_1 + dt*(speed.delta2Yt_1);
-    speed.delta2Yt = 4*speed.deltaUt + speed.ut - 6*speed.deltaYt - speed.yt;
-    speed.delta2Yt = speed.delta2Yt/10.0;
-
-    speed.ut_1      = speed.ut;
-    speed.yt_1      = speed.yt;
-    speed.deltaYt_1 = speed.deltaYt;
-    speed.delta2Yt_1= speed.delta2Yt;*/
-
     realSpeed = speed.yt;
 }
 
@@ -167,22 +151,71 @@ void Voiture::batterie(double realSpeed){
 	}
 	//Recharge de la batterie
 	if(ActiveRecharge && realSpeed == 0){
-		//double charge = 80/(20*60);
 		battery.level = battery.level + 0.5;
 	}
     batteryLevel = battery.level;
-    //std::cout<<"batteryLevel = "<<batteryLevel<<std::endl;
 }    
 
 void Voiture::camera(double posX, double posY, bool startAnalyse){
     coord_t position {posX, posY};
     if(startAnalyse){
-        //std::cout<<"Taking Picture at X = "<<posX<<" Y = "<<posY<<std::endl;
         pathMap->takePhoto(position);
-        //pathMap->dumpImage("./pic.bmp");
         analyseDone = true;
     }
     else{
         analyseDone = false;
     }
+}
+
+void Voiture::queueRead(nsCommon::Queue<uint32_t>& commandQueue){
+	uint32_t speedRead, orientationRead, batterieRead, takePictureRead;
+    double desiredSpeed2, desiredOrientation2;
+
+    desiredSpeed2= desiredSpeed;
+	desiredOrientation2= desiredOrientation;
+
+	speedRead = commandQueue.pop();
+	orientationRead = commandQueue.pop();
+	batterieRead = commandQueue.pop();
+	takePictureRead = commandQueue.pop();
+	while(!commandQueue.empty()) //delete everything in the queue (old data which is obsolete now)
+	{
+		commandQueue.pop();
+	}
+	commandQueue.push(speedRead);
+	commandQueue.push(orientationRead);
+	commandQueue.push(batterieRead);
+	commandQueue.push(takePictureRead);
+
+	desiredSpeed = static_cast<double>(speedRead)/1000-1000;
+    if(desiredSpeed != 80 && desiredSpeed != 50 && desiredSpeed != 0){
+        desiredSpeed = desiredSpeed2;
+    }
+	desiredOrientation = static_cast<double>(orientationRead)/1000-1000;
+    if(desiredOrientation>360){
+        desiredOrientation = desiredOrientation2;
+    }
+	ActiveRecharge = static_cast<double>(batterieRead)/1000-1000;
+	analyseStart = static_cast<double>(takePictureRead)/1000-1000;
+}
+
+void Voiture::queueWrite(nsCommon::Queue<uint32_t>& actualQueue){
+	while (!actualQueue.empty()) //delete everything in the queue (old data which is obsolete now)
+	{
+		actualQueue.pop();
+	}
+	actualQueue.push((batteryLevel+1000)*1000);
+	actualQueue.push((analyseDone+1000)*1000);
+	actualQueue.push((posX+1000)*1000);
+	actualQueue.push((posY+1000)*1000);
+	//insertion d'une erreur au 500 ittération
+	if(i==500){
+		actualQueue.push((realSpeed+20000)*1000);
+		i=0;
+	}
+	else{
+		actualQueue.push((realSpeed+1000)*1000);
+		i++;
+	}
+	actualQueue.push((realOrientation+1000)*1000);
 }

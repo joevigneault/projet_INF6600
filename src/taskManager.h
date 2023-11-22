@@ -40,36 +40,10 @@ extern sem_t simulator1_sync, simulator2_sync,simulator3_sync;
 // Semaphore du controleur pour les tâches non-périodique
 extern sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
 
-// signal or connection
-// input et ouput variable pour passe le result de partie continue 
-// a la partie numerique ou controleur
-struct analogToDigital{
-	double vitesseReel;
-	double orientationReel;
-	double posXReel;
-	double posYReel;
-	double niveauBatterie;
-	bool analyseTerminee;
-	bool alarmeBatterie10;
-	bool alarmeBatterie80;
-};
+extern pthread_mutex_t sync_actualQueue, sync_commandQueue;
 
-extern analogToDigital A2D;
-
-
-// input et ouput variable pour passe le result de partie numerique 
-// a la partie continue
-struct digitalToAnalog{
-	bool chargerBatterie;
-	double demarrerCycleAnalyse;
-	double consigneOrientation;
-	double consigneVitesse;
-};
-extern digitalToAnalog D2A;
 // init input output connection
 void initSignal();
-
-extern pthread_mutex_t sync_connectionA2D, sync_connectionD2A;
 
 int32_t init_timer(struct sigevent* event, struct itimerspec* itime,
 		           timer_t* timer, const int32_t chanel_id,

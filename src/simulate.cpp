@@ -30,13 +30,12 @@ void sim(){
 	pthread_attr_setinheritsched(&attr,PTHREAD_EXPLICIT_SCHED );
 	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 
-    if(pthread_mutex_init(&sync_connectionA2D, NULL) != 0){
+    if(pthread_mutex_init(&sync_actualQueue, NULL) != 0){
 		perror("pthread_mutex_init");
 	}
-    if(pthread_mutex_init(&sync_connectionD2A, NULL) != 0){
+    if(pthread_mutex_init(&sync_commandQueue, NULL) != 0){
 		perror("pthread_mutex_init");
 	}
-
     
     struct timespec tp;
     if(0 != clock_gettime(CLOCK_REALTIME, &tp)) {
@@ -176,11 +175,6 @@ void sim(){
         // Print error 
         printf("Could not create thread: %d\n", errno);
     }
-    /*if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &simulator_args)) {
-        // Print error
-        printf("Could not create thread: %d\n", errno);
-
-    }*/
     if(0 != pthread_create(&cameraTask, NULL, cameraRoutine, &camera_args)) {
         // Print error
         printf("Could not create thread: %d\n", errno);

@@ -8,6 +8,7 @@
 #include <vector>
 #include "genMap.h"
 #include <cmath>
+#include "queue.h"
 
 
 
@@ -101,6 +102,8 @@ class Voiture{
         void batterie(double realSpeed);
         void camera(double posX, double posY, bool startAnalyse);
         void startAnalyse();
+        void queueRead(nsCommon::Queue<uint32_t>& commandQueue);
+		void queueWrite(nsCommon::Queue<uint32_t>& actualQueue);
         
 };
 

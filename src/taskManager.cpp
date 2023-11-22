@@ -1,12 +1,15 @@
 #include "taskManager.h"
 
+/******************************************************************************
+ * Initialize the queues
+ *****************************************************************************/
+nsCommon::Queue<uint32_t> actualQueue(6);
+nsCommon::Queue<uint32_t> commandQueue(4);
 
 sem_t simulator1_sync, simulator2_sync, simulator3_sync;
 sem_t genAleatoire_sync, ctrlDest_sync, alarmeLow_sync, alarmeHigh_sync;
 
-pthread_mutex_t sync_connectionA2D, sync_connectionD2A;
-analogToDigital A2D;
-digitalToAnalog D2A;
+pthread_mutex_t sync_actualQueue, sync_commandQueue;
 
 Recorder record;
 /*******************************************************
@@ -86,21 +89,16 @@ void* pulse_handler(void* args) {
  *****************************************************/
  void initSignal(){
 
-	// from analog to digital
-	A2D.vitesseReel      = 0;
-	A2D.orientationReel  = 0;
-	A2D.posXReel         = 0;
-	A2D.posYReel         = 0;
-	A2D.niveauBatterie   = 0;
-	A2D.analyseTerminee  = 0;
-	A2D.alarmeBatterie10 = false;
-	A2D.alarmeBatterie80 = false;
-
-	//from digital to analog
-	D2A.chargerBatterie      = false;
-	D2A.demarrerCycleAnalyse = 0;
-	D2A.consigneOrientation  = 0;
-	D2A.consigneVitesse      = 0;
+	actualQueue.push((1000)*1000);
+	actualQueue.push((1000)*1000);
+	actualQueue.push((1000)*1000);
+	actualQueue.push((1000)*1000);
+	actualQueue.push((1000)*1000);
+	actualQueue.push((1000)*1000);
+	commandQueue.push((1000)*1000);
+	commandQueue.push((1000)*1000);
+	commandQueue.push((1000)*1000);
+	commandQueue.push((1000)*1000);
  }
 /**********************************************************************
  *               ROUTINE DE LA PARTIE CONTINUE
@@ -110,17 +108,11 @@ void* pulse_handler(void* args) {
  *****************************************************/
 void* vitesseRoutine(void* args) {
 
-	struct timespec tp;
 	sem_t*          sync_sem;
-	uint32_t        task_id;
-	uint32_t        starttime;
-	uint32_t        elapsed_time;
 	Voiture* 		smartCar;
 
 	/* Get the arguments */
 	sync_sem  = ((vitesseThread_arg*)args)->semaphore;
-	task_id   = ((vitesseThread_arg*)args)->id;
-	starttime = ((vitesseThread_arg*)args)->starttime;
 	smartCar  = ((vitesseThread_arg*)args)->smartCar;
 
 	float temps = 0;
@@ -130,13 +122,11 @@ void* vitesseRoutine(void* args) {
 		/* Wait for the pulse handler to release the semaphore */
 		sem_wait(sync_sem);
 		//Lire les donnees en provenance du controleur
-		pthread_mutex_lock(&sync_connectionD2A);
-		record.recordControlerDatafunc(temps,D2A.consigneVitesse, D2A.consigneOrientation, D2A.chargerBatterie);
-		smartCar->desiredSpeed       = D2A.consigneVitesse;
-		smartCar->desiredOrientation = D2A.consigneOrientation;
-		smartCar->ActiveRecharge     = D2A.chargerBatterie;
-		smartCar->analyseStart		 = D2A.demarrerCycleAnalyse;
-    	pthread_mutex_unlock(&sync_connectionD2A);
+		record.recordControlerDatafunc(temps,smartCar->desiredSpeed, smartCar->desiredOrientation, smartCar->ActiveRecharge);
+
+		pthread_mutex_lock(&sync_commandQueue);
+		smartCar->queueRead(commandQueue);
+		pthread_mutex_unlock(&sync_commandQueue);
 
 		smartCar->vitesse(smartCar->desiredSpeed);
 		//std::cout<<"LA VITESSE désirée = "<<smartCar->desiredSpeed<<std::endl;
@@ -151,17 +141,13 @@ void* vitesseRoutine(void* args) {
  void* orientationPositionRoutine(void* args){
 
 	Voiture* 		smartCar;
-	// Get the arguments 
+	/* Get the arguments */
 	smartCar  = ((vitesseThread_arg*)args)->smartCar;
-	//smartCar  = ((Voiture*)args);
 
 	///* Routine loop 
 	while(true) {
 		sem_wait(&simulator1_sync);
-		//std::cout<<"La vitesse actuel reel : "<<smartCar->realSpeed<<std::endl;
 		smartCar->positionOrientation(smartCar->realSpeed, smartCar->desiredOrientation);
-		//std::cout<<"LA POSITION REEL   : X = "<<smartCar->posX<<"  Y = "<< smartCar->posY<<std::endl;
-		//std::cout<<"L'ORIANTATION REEL  = "<<smartCar->realOrientation<<std::endl;
 		sem_post(&simulator2_sync);
 	}
 }
@@ -172,36 +158,30 @@ void* vitesseRoutine(void* args) {
 void* batterieRoutine(void* args){
 
 	Voiture* 		smartCar;
-	// Get the arguments 
+	/* Get the arguments */
 	smartCar  = ((vitesseThread_arg*)args)->smartCar;
-	//smartCar  = ((Voiture*)args);
 
 	float temps = 0;
 	///* Routine loop 
 	while(true) {
 		sem_wait(&simulator2_sync);
 		smartCar->batterie(smartCar->realSpeed);
-		//std::cout<<"NIVEAU BATTERIE = "<< smartCar->batteryLevel<<std::endl;
+		/* Création des alarmes */
 		if(smartCar->alarmeBatterie10){
     		sem_post(&alarmeLow_sync);
     	}
     	if(smartCar->alarmeBatterie80){
 			sem_post(&alarmeHigh_sync);
 		}
-		pthread_mutex_lock(&sync_connectionA2D);
 		record.recordCarDatafunc(temps,smartCar->realSpeed,smartCar->realOrientation,
 								smartCar->posX,smartCar->posY,smartCar->batteryLevel);
-		A2D.vitesseReel      = smartCar->realSpeed;
-		A2D.orientationReel  = smartCar->realOrientation;
-		A2D.posXReel         = smartCar->posX;
-		A2D.posYReel         = smartCar->posY;
-		A2D.niveauBatterie   = smartCar->batteryLevel;
-		A2D.analyseTerminee  = smartCar->analyseDone;
-    	pthread_mutex_unlock(&sync_connectionA2D);
+
+		/* Write the data in the queue */
+		pthread_mutex_lock(&sync_actualQueue);
+		smartCar->queueWrite(actualQueue);
+		pthread_mutex_unlock(&sync_actualQueue);
 
 		temps+=dt;
-		//sem_post(&simulator3_sync);
-
 	}
 }
 /***************************************************************
@@ -209,37 +189,32 @@ void* batterieRoutine(void* args){
  **************************************************************/
 void* cameraRoutine(void* args){
 
-	struct timespec tp;
 	sem_t*          sync_sem;
-	uint32_t        task_id;
-	uint32_t        starttime;
-	uint32_t        elapsed_time;
 	Voiture* 		smartCar;
 
 	/* Get the arguments */
 	sync_sem  = ((vitesseThread_arg*)args)->semaphore;
-	task_id   = ((vitesseThread_arg*)args)->id;
-	starttime = ((vitesseThread_arg*)args)->starttime;
 	smartCar  = ((vitesseThread_arg*)args)->smartCar;
 
 	
 	while(true) {
 
-		pthread_mutex_lock(&sync_connectionD2A);
-		smartCar->analyseStart	= D2A.demarrerCycleAnalyse;
-    	pthread_mutex_unlock(&sync_connectionD2A);
-
 		sem_wait(sync_sem);
+
+		pthread_mutex_lock(&sync_commandQueue);
+		smartCar->queueRead(commandQueue);
+		pthread_mutex_unlock(&sync_commandQueue);
+
 		smartCar->camera(smartCar->posX, smartCar->posY, smartCar->analyseStart);
 
-		pthread_mutex_lock(&sync_connectionA2D);
-		A2D.analyseTerminee  = smartCar->analyseDone;
-    	pthread_mutex_unlock(&sync_connectionA2D);
+		pthread_mutex_lock(&sync_actualQueue);
+		smartCar->queueWrite(actualQueue);
+		pthread_mutex_unlock(&sync_actualQueue);
 		
 	}
 }
 /**********************************************************************
- *               ROUTINE DU CONTROLLEUR (PARTIE NUMERIQUE)
+ *               ROUTINE DU CONTROLLEUR
  ***********************************************************************/
 /***************************************************************
  * 			Generateur de destination
@@ -247,21 +222,18 @@ void* cameraRoutine(void* args){
 void* generateurAleatoireRoutine(void *args) {
 
 	Controleur*    controleur;
-	double posX, posY;
-
 	/* Get the arguments */
 	controleur   = ((Controleur*)args);
 
 	/* Routine loop */
 	while(true) {
 		sem_wait(&genAleatoire_sync);
-		pthread_mutex_lock(&sync_connectionA2D);
-		posX = A2D.posXReel;
-		posY = A2D.posYReel;
-    	pthread_mutex_unlock(&sync_connectionA2D);
-    	controleur->generateurAleatoire(posX, posY);
+		pthread_mutex_lock(&sync_actualQueue);
+		controleur->queueRead(actualQueue);
+		pthread_mutex_unlock(&sync_actualQueue);
+
+    	controleur->generateurAleatoire(controleur->dataRead.posXReel, controleur->dataRead.posYReel);
     	controleur->taskData.pathMap->dumpImage("./pic2.bmp");
-	    std::cout<<"picture taken"<<std::endl;
 		sem_post(&ctrlDest_sync);
 	}
 }
@@ -272,8 +244,6 @@ void* generateurAleatoireRoutine(void *args) {
 void* ctrlDestinationRoutine(void *args) {
 
 	Controleur*    controleur;
-	double posX, posY;
-
 	/* Get the arguments */
 	controleur   = ((Controleur*)args);
 
@@ -281,11 +251,12 @@ void* ctrlDestinationRoutine(void *args) {
 	while(true) {
 		sem_wait(&ctrlDest_sync);
 		controleur->syncCtrlTask = nop;
-		pthread_mutex_lock(&sync_connectionA2D);
-		posX = A2D.posXReel;
-		posY = A2D.posYReel;
-    	pthread_mutex_unlock(&sync_connectionA2D);
-		controleur->ctrlDestination(posX, posY);
+
+		pthread_mutex_lock(&sync_actualQueue);
+		controleur->queueRead(actualQueue);
+		pthread_mutex_unlock(&sync_actualQueue);
+
+		controleur->ctrlDestination(controleur->dataRead.posXReel, controleur->dataRead.posYReel);
 
 		if(controleur->syncCtrlTask == getToDestination){
 			//generation d'une nouvelle destination
@@ -296,9 +267,9 @@ void* ctrlDestinationRoutine(void *args) {
 			sem_post(&ctrlDest_sync); //reprise du fonctionnement normal
 		}
 
-		pthread_mutex_lock(&sync_connectionD2A);
-		D2A.chargerBatterie    = controleur->chargerBatterie;
-		pthread_mutex_unlock(&sync_connectionD2A);
+		pthread_mutex_lock(&sync_commandQueue);
+		controleur->queueWrite(commandQueue);
+		pthread_mutex_unlock(&sync_commandQueue);
 	}
 }
 /***************************************************************
@@ -306,48 +277,29 @@ void* ctrlDestinationRoutine(void *args) {
  ***************************************************************/
 void* ctrlNavigationRoutine(void *args) {
 
-	struct timespec tp;
 	sem_t*          sync_sem;
-	uint32_t        task_id;
-	uint32_t        starttime;
-	uint32_t        elapsed_time;
 	Controleur*    controleur;
-
 	/* Get the arguments */
 	sync_sem     = ((controlleurThread_arg*)args)->semaphore;
-	task_id      = ((controlleurThread_arg*)args)->id;
-	starttime    = ((controlleurThread_arg*)args)->starttime;
 	controleur   = ((controlleurThread_arg*)args)->control;
-
-	double posX, posY;
-	double realSpeed;
-	double realOrientation;
-	double batterie;
-	//int i = 0;
 
 	/* Routine loop */
 	while(true) {
 		/* Wait for the pulse handler to release the semaphore */
 		if(0 == sem_wait(sync_sem)) {
-			pthread_mutex_lock(&sync_connectionA2D);
-			posX 	  		= A2D.posXReel;
-			posY 	  		= A2D.posYReel;
-		 	realSpeed 		= A2D.vitesseReel;
-		 	realOrientation = A2D.orientationReel;
-		 	batterie 		= A2D.niveauBatterie;
-	    	pthread_mutex_unlock(&sync_connectionA2D);
+			pthread_mutex_lock(&sync_actualQueue);
+			controleur->queueRead(actualQueue);
+			pthread_mutex_unlock(&sync_actualQueue);
 
-			controleur->ctrlNavigation(posX, posY, realSpeed, realOrientation, batterie);
-
+			controleur->ctrlNavigation(controleur->dataRead.posXReel, controleur->dataRead.posYReel, controleur->dataRead.vitesseReel, controleur->dataRead.orientationReel, controleur->dataRead.niveauBatterie);
 
 			if(controleur->syncCtrlTask == getTowayPoint){
 				//Arrivé au wayPoint
 				sem_post(&ctrlDest_sync);
 			}
-			pthread_mutex_lock(&sync_connectionD2A);
-			D2A.consigneVitesse     = controleur->consigneVitesse;
-			D2A.consigneOrientation = controleur->consigneOrientation;
-	    	pthread_mutex_unlock(&sync_connectionD2A);
+			pthread_mutex_lock(&sync_commandQueue);
+			controleur->queueWrite(commandQueue);
+			pthread_mutex_unlock(&sync_commandQueue);
 		}
 	}
 }
@@ -358,41 +310,27 @@ void* ctrlNavigationRoutine(void *args) {
 
  void* ctrlCameraRoutine(void *args) {
 
-	struct timespec tp;
 	sem_t*          sync_sem;
-	uint32_t        task_id;
-	uint32_t        starttime;
-	uint32_t        elapsed_time;
 	Controleur*    controleur;
 
 	/* Get the arguments */
 	sync_sem     = ((controlleurThread_arg*)args)->semaphore;
-	task_id      = ((controlleurThread_arg*)args)->id;
-	starttime    = ((controlleurThread_arg*)args)->starttime;
 	controleur   = ((controlleurThread_arg*)args)->control;
-
-	double posX, posY;
-	double analyseDone;
-	double realOrientation;
-	double batterie;
-	//int i = 0;
 
 	/* Routine loop */
 	while(true) {
 		//sem_wait(&ctrlNavSync);
 		sem_wait(sync_sem);
-		pthread_mutex_lock(&sync_connectionA2D);
-		posX 	  		= A2D.posXReel;
-		posY 	  		= A2D.posYReel;
-		analyseDone		= A2D.analyseTerminee;
-    	pthread_mutex_unlock(&sync_connectionA2D);
 
-		controleur->ctrlCamera(posX, posY, analyseDone);
+		pthread_mutex_lock(&sync_actualQueue);
+		controleur->queueRead(actualQueue);
+		pthread_mutex_unlock(&sync_actualQueue);
+
+		controleur->ctrlCamera(controleur->dataRead.posXReel, controleur->dataRead.posYReel, controleur->dataRead.analyseTerminee);
 		//std::cout<<"CAMERA TEST CTRL"<<std::endl;
-		pthread_mutex_lock(&sync_connectionD2A);
-		D2A.demarrerCycleAnalyse  = controleur->demarrerCycleAnalyse;
-    	pthread_mutex_unlock(&sync_connectionD2A);
-		
+		pthread_mutex_lock(&sync_commandQueue);
+		controleur->queueWrite(commandQueue);
+		pthread_mutex_unlock(&sync_commandQueue);		
 	}
 }
 
@@ -402,7 +340,6 @@ void* ctrlNavigationRoutine(void *args) {
  void* alarmBattery10(void *args) {
 
 	 Controleur*    controleur;
-
 	 /* Get the arguments */
 	 controleur   = ((Controleur*)args);
 
@@ -419,7 +356,6 @@ void* ctrlNavigationRoutine(void *args) {
  void* alarmBattery80(void *args) {
 
 	 Controleur*    controleur;
-
 	 /* Get the arguments */
 	 controleur   = ((Controleur*)args);
 

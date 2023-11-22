@@ -27,7 +27,7 @@ void PathMap::getNextStep(int32_t destX, int32_t destY,
     double d = sqrt((destX-posCourX)*(destX-posCourX) + 
                       (destY-posCourY)*(destY-posCourY));
 
-    if(d <= 100)
+    if(d <= 300)
     {
         stepX = destX;
         stepY = destY;

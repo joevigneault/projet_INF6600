@@ -40,10 +40,6 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
     droiteY = taskData.destination.wayPoint.y - taskData.navigation.realPosition.y;
     taskData.navigation.distance = sqrt(pow(droiteX, 2) + pow(droiteY, 2));
 
-    //std::cout<<"postition reel de X :"<<posX<<std::endl;
-    //std::cout<<"postition reel de Y :"<<posY<<std::endl;
-    //std::cout<<"Distance :"<<taskData.navigation.distance<<std::endl;
-
     switch (taskData.etatVehicule)
     {
     case marche:
@@ -61,7 +57,7 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
             // Étape atteinte et envoi du signal au contrôleur de destination
             taskData.destination.alarme = wayPointReach;
             syncCtrlTask = getTowayPoint;
-            std::cout<<"Reach the way point"<<std::endl;
+            std::cout<<"Waypoint reached"<<std::endl;
         }
         // Calcul de l'orientation souhaitee
         taskData.navigation.desiredOrientation = (atan((droiteX) / (droiteY)) * 180.0) / M_PI;
@@ -84,9 +80,9 @@ void Controleur::ctrlNavigation(double posX,double posY, double realSpeed, doubl
 
 void Controleur::ctrlDestination(double posX, double posY){
    
-        // Lecture des entrées
+    // Lecture des entrées
     taskData.destination.realPosition = {posX, posY};
-        // Switch case en fonction du type d'événement reçu
+    // Switch case en fonction du type d'événement reçu
     switch (taskData.destination.alarme)
     {
     // Réception d'une alarme ALARM_LOW_BATTERY
@@ -95,7 +91,7 @@ void Controleur::ctrlDestination(double posX, double posY){
         taskData.destination.type = versStation;
         // Calcul de la station la plus proche et affection de cette station au wayPoint
         taskData.pathMap->getClosestStation(taskData.destination.realPosition, taskData.destination.wayPoint);
-        printf("Closest Station at Y = %f and X = %f\n", taskData.destination.wayPoint.y, taskData.destination.wayPoint.x);
+        printf("Closest Station at X = %f and Y = %f\n", taskData.destination.wayPoint.x, taskData.destination.wayPoint.y);
         taskData.destination.alarme = closed;
         break;
     // Réception d'une alarme ALARM_HIGH_BATTERY
@@ -131,8 +127,7 @@ void Controleur::ctrlDestination(double posX, double posY){
             else {
                 taskData.pathMap->genWp(taskData.destination.realPosition, taskData.destination.desiredDestination, taskData.destination.wayPoint);
                 taskData.etatVehicule = marche;
-                std::cout<<"wayPoint X : "<<taskData.destination.wayPoint.x<<std::endl;
-                std::cout<<"wayPoint Y : "<<taskData.destination.wayPoint.y<<std::endl;
+                std::cout<<"WayPoint X , Y : "<<taskData.destination.wayPoint.x << ','<< taskData.destination.wayPoint.y<<std::endl;
             }
         }
         taskData.destination.alarme = closed;
@@ -147,7 +142,7 @@ void Controleur::ctrlDestination(double posX, double posY){
 
 void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
     
-        // Lecture des entrées
+    // Lecture des entrées
     taskData.camera.realPosition = {posX, posY};
     taskData.camera.checkPicture = analyseDone;
 
@@ -155,7 +150,6 @@ void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
     taskData.camera.distance = sqrt(pow(taskData.camera.realPosition.x - taskData.camera.lastPicturePosition.x, 2)
         + pow(taskData.camera.realPosition.y - taskData.camera.lastPicturePosition.y, 2));
     taskData.camera.takePicture = 0;
-    //printf("camera distance : %f\n", taskData.camera.distance);
     switch (taskData.etatVehicule)
     {
     case marche:
@@ -164,12 +158,10 @@ void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
             taskData.camera.takePicture = 1;
             taskData.camera.savePicture = 0;
             taskData.camera.lastPicturePosition = taskData.camera.realPosition;
-            //printf("active photo \n");
         }
         // Si la distance entre deux photos dépasse 22m (gestion d'erreur), réinitialisation de la position de la dernière image prise
         else if (taskData.camera.distance > 22.0) {
             taskData.camera.lastPicturePosition = taskData.camera.realPosition;
-             //taskData.camera.takePicture = 1;
         }
         break;
     default:
@@ -182,9 +174,7 @@ void Controleur::ctrlCamera(double posX,double posY ,bool analyseDone ) {
         ///taskData.pathMap->savePhoto(d->camera.realPosition);
     }
     
-            // Ajustement des sorties
-    //ttAnalogOut(ANALYSE_PICTURE, d->camera.takePicture);
-    //return FINISHED; 
+    // Ajustement des sorties
     demarrerCycleAnalyse = taskData.camera.takePicture;
 }
 
@@ -204,19 +194,95 @@ void Controleur::alarmBattery80() {
 void Controleur::generateurAleatoire(double posX, double posY) {
     
     taskData.destination.realPosition = {posX, posY};
+    if(taskData.destination.realPosition.x !=0 || taskData.destination.realPosition.y !=0){
+        // Attente d'une minute avant de redémarrer le vehicule
+        sleep(60);
+    }
     // Génération aléatoire d'une destination à partir de la position actuelle
     taskData.pathMap->genDest(taskData.destination.realPosition, taskData.genDestination.newDest);
     
     // Copie de la nouvelle destination souhaitée dans le controleur de destination
     taskData.destination.desiredDestination = { taskData.genDestination.newDest.x,taskData.genDestination.newDest.y };
     printf("-----------------------------\n");
-    printf("Nouvelle Destination Y : %f\n", taskData.destination.desiredDestination.y);
     printf("Nouvelle Destination X : %f\n", taskData.destination.desiredDestination.x);
+    printf("Nouvelle Destination Y : %f\n", taskData.destination.desiredDestination.y);
     printf("-----------------------------\n");
-    // Attente d'une minute avant de redémarrer le vehicule
-    //ttSleep(60);
     // Création d'une alarme pour indiquer la requête du prochain waypoint
     taskData.destination.type = versDestination;
     taskData.destination.alarme = wayPointReach;
-    //ttCreateJob("Controle Destination");
+}
+
+/******************************************************************************
+ * Task ctrlQueueRead
+ * Read ctrlData in actualQueue
+ *****************************************************************************/
+void Controleur::queueRead(nsCommon::Queue<uint32_t>& actualQueue)
+{
+	uint32_t batterie, analyse, posX, posY, vitesse, orientation;
+    double niveauBatterie2, posXReel2, posYReel2, vitesseReel2;
+
+    niveauBatterie2= dataRead.niveauBatterie;
+	posXReel2 = dataRead.posXReel;
+	posYReel2 = dataRead.posYReel;
+	vitesseReel2 = dataRead.vitesseReel;
+
+	batterie = actualQueue.pop();
+	analyse = actualQueue.pop();
+	posX = actualQueue.pop();
+	posY = actualQueue.pop();
+	vitesse = actualQueue.pop();
+	orientation = actualQueue.pop();
+	while (!actualQueue.empty()) //delete everything else in the queue
+	{
+		actualQueue.pop();
+	}
+	actualQueue.push(batterie);
+	actualQueue.push(analyse);
+	actualQueue.push(posX);
+	actualQueue.push(posY);
+	actualQueue.push(vitesse);
+	actualQueue.push(orientation);
+
+
+	// Lecture des entrées
+	dataRead.niveauBatterie = static_cast<double>(batterie)/1000-1000;
+	//std::cout<<dataRead.niveauBatterie<< ' '<<niveauBatterie2<<std::endl;
+    if(abs(dataRead.niveauBatterie-niveauBatterie2)>2 && niveauBatterie2 != 0){
+        dataRead.niveauBatterie = niveauBatterie2;
+        printf("Erreur de lecture du niveau de la batterie\n");
+    }
+	dataRead.analyseTerminee = static_cast<double>(analyse)/1000-1000;
+	dataRead.posXReel = static_cast<double>(posX)/1000-1000;
+    if(abs(dataRead.posXReel-posXReel2)>500){
+        dataRead.posXReel = posXReel2;
+        printf("Erreur de lecture de la position en x\n");
+    }
+	dataRead.posYReel = static_cast<double>(posY)/1000-1000;
+    if(abs(dataRead.posYReel-posYReel2)>500){
+        dataRead.posYReel = posYReel2;
+        printf("Erreur de lecture de la position en y\n");
+    }
+	dataRead.vitesseReel = static_cast<double>(vitesse)/1000-1000;
+    if(abs(dataRead.vitesseReel-vitesseReel2)>10){
+        dataRead.vitesseReel = vitesseReel2;
+        printf("Erreur de lecture de la vitesse\n");
+    }
+	dataRead.orientationReel = static_cast<double>(orientation)/1000-1000;
+}
+
+/******************************************************************************
+ * Task ctrlQueueWrite
+ * Read ctrlData in actualQueue
+ *****************************************************************************/
+void Controleur::queueWrite(nsCommon::Queue<uint32_t>& commandQueue)
+{
+	while (!commandQueue.empty()) //delete everything in the queue (old data which is obsolete now)
+	{
+		commandQueue.pop();
+	}
+	// Commande des sorties
+	commandQueue.push((consigneVitesse+1000)*1000);
+	commandQueue.push((consigneOrientation+1000)*1000);
+	commandQueue.push((chargerBatterie+1000)*1000);
+	commandQueue.push((demarrerCycleAnalyse+1000)*1000);
 }

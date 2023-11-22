@@ -4,6 +4,7 @@
 #include <cmath>
 #include <stdio.h>
 #include <iostream>
+#include "queue.h"
 
 
 
@@ -59,6 +60,16 @@ struct TaskData {
     generateurAleatroire genDestination;
     Vehicule etatVehicule;
 };
+
+struct DataRead{
+	double vitesseReel;
+	double orientationReel;
+	double posXReel;
+	double posYReel;
+	double niveauBatterie;
+	bool analyseTerminee;
+};
+
 class Controleur{
     public : 
         TaskData taskData;
@@ -68,6 +79,7 @@ class Controleur{
         bool demarrerCycleAnalyse;
         systemEtat  syncCtrlTask;
         bool rechargeTermineeSync;
+        DataRead dataRead;
         
         Controleur();
         ~Controleur();
@@ -82,6 +94,8 @@ class Controleur{
         void alarmBattery10();
         void alarmBattery80();
         void generateurAleatoire(double posX, double posY);
+        void queueRead(nsCommon::Queue<uint32_t>& actualQueue);
+        void queueWrite(nsCommon::Queue<uint32_t>& commandQueue);
 
 };
 
